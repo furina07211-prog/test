@@ -40,6 +40,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * 销售管理 模块服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> implements SalesService {
@@ -51,6 +54,9 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
     private final WarehouseMapper warehouseMapper;
     private final FruitMapper fruitMapper;
 
+    /**
+     * 创建销售单：写入主单、明细并汇总金额，初始状态为草稿。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesOrder createOrder(SalesOrderCreateRequest request) {
@@ -88,7 +94,7 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
     public SalesOrder submit(Long orderId) {
         SalesOrder order = requireOrder(orderId);
         if (!Objects.equals("DRAFT", order.getOrderStatus())) {
-            throw new BusinessException("Only draft order can be submitted");
+            throw new BusinessException("仅草稿单可提交");
         }
         order.setOrderStatus("SUBMITTED");
         this.updateById(order);
@@ -99,28 +105,31 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
     public SalesOrder approve(Long orderId) {
         SalesOrder order = requireOrder(orderId);
         if (!Objects.equals("SUBMITTED", order.getOrderStatus())) {
-            throw new BusinessException("Only submitted order can be approved");
+            throw new BusinessException("仅已提交单据可审核");
         }
         order.setOrderStatus("APPROVED");
         this.updateById(order);
         return order;
     }
 
+    /**
+     * 分批出库：先整单校验库存，再按 FEFO 扣减批次库存并更新出库进度。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SalesOrder ship(Long orderId, SalesShipRequest request) {
         SalesOrder order = requireOrder(orderId);
         if (!Objects.equals("APPROVED", order.getOrderStatus())) {
-            throw new BusinessException("Only approved order can be shipped");
+            throw new BusinessException("仅已审核单据可出库");
         }
         if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
-            throw new BusinessException("Ship items cannot be empty");
+            throw new BusinessException("出库明细不能为空");
         }
 
         List<SalesOrderItem> dbItems = itemMapper.selectList(
                 new LambdaQueryWrapper<SalesOrderItem>().eq(SalesOrderItem::getSalesOrderId, orderId));
         if (dbItems.isEmpty()) {
-            throw new BusinessException("Sales order has no items");
+            throw new BusinessException("销售单无明细数据");
         }
         Map<Long, SalesOrderItem> itemMap = dbItems.stream()
                 .collect(Collectors.toMap(SalesOrderItem::getId, item -> item, (a, b) -> a, LinkedHashMap::new));
@@ -128,19 +137,19 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
         Map<Long, BigDecimal> demandByFruit = new HashMap<>();
         for (SalesShipRequest.ShipItem shipItem : request.getItems()) {
             if (shipItem == null || shipItem.getItemId() == null) {
-                throw new BusinessException("Ship item is invalid");
+                throw new BusinessException("出库明细参数无效");
             }
             SalesOrderItem item = itemMap.get(shipItem.getItemId());
             if (item == null) {
-                throw new BusinessException("Sales item not found: " + shipItem.getItemId());
+                throw new BusinessException("销售明细不存在：" + shipItem.getItemId());
             }
             BigDecimal shipQty = nvl(shipItem.getShipQty());
             if (shipQty.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException("Ship qty must be greater than 0");
+                throw new BusinessException("出库数量必须大于0");
             }
             BigDecimal pendingQty = nvl(item.getQuantity()).subtract(nvl(item.getShippedQty()));
             if (shipQty.compareTo(pendingQty) > 0) {
-                throw new BusinessException("Ship qty exceeds pending qty for item " + item.getId());
+                throw new BusinessException("出库数量超过待出数量，明细ID：" + item.getId());
             }
             demandByFruit.merge(item.getFruitId(), shipQty, BigDecimal::add);
         }
@@ -148,13 +157,13 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
         for (Map.Entry<Long, BigDecimal> entry : demandByFruit.entrySet()) {
             BigDecimal available = sumAvailableByFruit(order.getWarehouseId(), entry.getKey());
             if (available.compareTo(entry.getValue()) < 0) {
-                throw new BusinessException("Insufficient inventory for fruit " + entry.getKey());
+                throw new BusinessException("库存不足，水果ID：" + entry.getKey());
             }
         }
 
         for (SalesShipRequest.ShipItem shipItem : request.getItems()) {
             SalesOrderItem item = itemMap.get(shipItem.getItemId());
-            BigDecimal remain = shipItem.getShipQty();
+            BigDecimal remain = nvl(shipItem.getShipQty());
             List<InventoryBatch> batches = batchMapper.selectList(new LambdaQueryWrapper<InventoryBatch>()
                     .eq(InventoryBatch::getFruitId, item.getFruitId())
                     .eq(InventoryBatch::getWarehouseId, order.getWarehouseId())
@@ -174,10 +183,10 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
                 remain = remain.subtract(pick);
             }
             if (remain.compareTo(BigDecimal.ZERO) > 0) {
-                throw new BusinessException("Insufficient inventory for fruit " + item.getFruitId());
+                throw new BusinessException("库存不足，水果ID：" + item.getFruitId());
             }
 
-            item.setShippedQty(nvl(item.getShippedQty()).add(shipItem.getShipQty()));
+            item.setShippedQty(nvl(item.getShippedQty()).add(nvl(shipItem.getShipQty())));
             itemMapper.updateById(item);
         }
 
@@ -191,6 +200,9 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
         return order;
     }
 
+    /**
+     * 分页查询销售单，并补齐客户/仓库名称与出库进度字段。
+     */
     @Override
     public IPage<SalesOrderPageVO> pageList(SalesOrderPageQuery query) {
         SalesOrderPageQuery safeQuery = query != null ? query : new SalesOrderPageQuery();
@@ -268,6 +280,9 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
         return result;
     }
 
+    /**
+     * 查询销售单明细并计算待出数量。
+     */
     @Override
     public List<SalesOrderItemVO> listItems(Long orderId) {
         requireOrder(orderId);
@@ -319,33 +334,36 @@ public class SalesServiceImpl extends ServiceImpl<SalesOrderMapper, SalesOrder> 
     private SalesOrder requireOrder(Long orderId) {
         SalesOrder order = this.getById(orderId);
         if (order == null) {
-            throw new BusinessException("Sales order not found");
+            throw new BusinessException("销售单不存在");
         }
         return order;
     }
 
+    /**
+     * 销售单创建参数校验。
+     */
     private void validateCreateRequest(SalesOrderCreateRequest request) {
         if (request == null) {
-            throw new BusinessException("Request body cannot be empty");
+            throw new BusinessException("请求体不能为空");
         }
         if (request.getCustomerId() == null) {
-            throw new BusinessException("Customer is required");
+            throw new BusinessException("客户不能为空");
         }
         if (request.getWarehouseId() == null) {
-            throw new BusinessException("Warehouse is required");
+            throw new BusinessException("仓库不能为空");
         }
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new BusinessException("At least one sales item is required");
+            throw new BusinessException("至少需要一条销售明细");
         }
         for (SalesOrderCreateRequest.SalesItemRequest item : request.getItems()) {
             if (item.getFruitId() == null) {
-                throw new BusinessException("Fruit is required for each item");
+                throw new BusinessException("每条明细都必须选择水果");
             }
             if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException("Quantity must be greater than 0");
+                throw new BusinessException("数量必须大于0");
             }
             if (item.getUnitPrice() == null || item.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
-                throw new BusinessException("Unit price cannot be negative");
+                throw new BusinessException("单价不能为负数");
             }
         }
     }

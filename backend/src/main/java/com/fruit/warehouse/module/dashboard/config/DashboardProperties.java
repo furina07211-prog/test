@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 public class DashboardProperties {
     private String pythonCommand = "python";
     private String scriptPath = "../ai-algorithm/scripts/predict_cli.py";
-    private String testDataSqlPath = "../sql/test_data.sql";
+    private String testDataSqlPath = "../sql/_seed_ascii.sql";
     private Integer timeoutSeconds = 120;
     private Integer defaultSafetyDays = 3;
     private boolean autoEnabled = false;

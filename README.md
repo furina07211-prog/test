@@ -1,26 +1,39 @@
-# Fruit Warehouse Manage
+﻿# Fruit Warehouse Manage
 
 基于 `Spring Boot 3 + MyBatis-Plus + MySQL 8 + Vue 3 + Element Plus + ECharts + Python` 的水果批发仓库管理系统。
 
-## 目录
+## 项目目录
 - `backend`：Spring Boot 后端
 - `frontend`：Vue 3 前端
-- `ai-algorithm`：销量预测与采购建议脚本
-- `sql`：数据库初始化与演示数据
+- `ai-algorithm`：AI预测与库存优化脚本
+- `sql`：数据库初始化与演示种子数据
 
-## 启动顺序
-1. 执行 SQL 脚本：`00_init_db.sql -> 01_schema.sql -> 02_seed_data.sql -> 03_demo_report_data.sql -> 04_menu_init.sql`
-2. 修改 `backend/src/main/resources/application-dev.yml` 中的 MySQL 连接。
-3. 在 `backend` 目录运行：`mvn spring-boot:run`
-4. 在 `frontend` 目录运行：`npm install --cache .npm-cache && npm run dev`
-5. 如需算法依赖：在 `ai-algorithm` 目录创建虚拟环境并执行 `pip install -r requirements.txt`
+## 默认运行配置（已固化）
+- MySQL：`localhost:3306`
+- 数据库：`fruit_warehouse_manage`
+- 用户名/密码：`root / 123456`
+- 后端端口：`8080`
+- 前端端口：`5173`
+- 前端代理：`/api -> http://localhost:8080`
+
+## 快速启动
+1. 初始化数据库脚本（按顺序）：
+   - `sql/_sanitized_schema.sql`
+   - `sql/_seed_ascii.sql`
+2. 启动后端：
+   - `cd backend`
+   - `mvn spring-boot:run`
+3. 启动前端：
+   - `cd frontend`
+   - `npm install --cache .npm-cache`
+   - `npm run dev`
+4. 访问：`http://localhost:5173`
 
 ## 默认账号
 - `admin / 123456`
 - `warehouse / 123456`
 - `sales / 123456`
 
-## AI 说明
-- 后端 `AiService.java` 同时支持规则模式和 OpenAI 兼容接口模式。
-- 如果 `application.yml` 中仍是示例 Key，则系统走本地规则回复，便于无 Key 演示。
-- Python 预测统一入口为 `ai-algorithm/scripts/predict_cli.py`。
+## 说明
+- AI Key 为空时不影响系统基础功能启动。
+- 详细一键步骤见《一键启动说明.md》。

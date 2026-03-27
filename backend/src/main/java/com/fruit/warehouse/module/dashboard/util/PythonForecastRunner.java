@@ -49,22 +49,22 @@ public class PythonForecastRunner {
             boolean finished = process.waitFor(Duration.ofSeconds(properties.getTimeoutSeconds()).toMillis(), TimeUnit.MILLISECONDS);
             if (!finished) {
                 process.destroyForcibly();
-                throw new BusinessException("python script timeout");
+                throw new BusinessException("Python脚本执行超时");
             }
 
             String stdout = readAll(process.getInputStream());
             String stderr = readAll(process.getErrorStream());
             if (process.exitValue() != 0) {
-                throw new BusinessException("python script failed: " + stderr);
+                throw new BusinessException("Python脚本执行失败：" + stderr);
             }
             if (stdout == null || stdout.isBlank()) {
-                throw new BusinessException("python script returned empty output");
+                throw new BusinessException("Python脚本返回为空");
             }
             return objectMapper.readTree(stdout);
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new BusinessException("python execution error: " + ex.getMessage());
+            throw new BusinessException("Python执行异常：" + ex.getMessage());
         }
     }
 

@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 基础资料 模块控制器。
+ */
 @RestController
 @RequestMapping("/api/basic")
 @RequiredArgsConstructor

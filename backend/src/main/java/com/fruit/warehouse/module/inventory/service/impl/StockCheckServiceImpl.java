@@ -23,6 +23,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 库存管理 模块服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 public class StockCheckServiceImpl extends ServiceImpl<StockCheckOrderMapper, StockCheckOrder> implements StockCheckService {
@@ -31,6 +34,9 @@ public class StockCheckServiceImpl extends ServiceImpl<StockCheckOrderMapper, St
     private final InventoryBatchMapper batchMapper;
     private final InventoryService inventoryService;
 
+    /**
+     * 创建盘点单并写入盘点明细。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public StockCheckOrder createOrder(StockCheckCreateRequest request) {
@@ -45,7 +51,7 @@ public class StockCheckServiceImpl extends ServiceImpl<StockCheckOrderMapper, St
         for (StockCheckCreateRequest.StockCheckItemRequest itemReq : request.getItems()) {
             InventoryBatch batch = batchMapper.selectById(itemReq.getBatchId());
             if (batch == null) {
-                throw new BusinessException("Batch not found for stock check");
+                throw new BusinessException("盘点对应批次不存在");
             }
             StockCheckItem item = new StockCheckItem();
             item.setCheckOrderId(order.getId());
@@ -62,15 +68,18 @@ public class StockCheckServiceImpl extends ServiceImpl<StockCheckOrderMapper, St
         return order;
     }
 
+    /**
+     * 审核盘点单并按盈亏差异回写库存。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public StockCheckOrder approve(Long orderId, StockCheckApproveRequest request) {
         StockCheckOrder order = this.getById(orderId);
         if (order == null) {
-            throw new BusinessException("Stock check order not found");
+            throw new BusinessException("盘点单不存在");
         }
         if (!Objects.equals("DRAFT", order.getCheckStatus()) && !Objects.equals("SUBMITTED", order.getCheckStatus())) {
-            throw new BusinessException("Only draft/submitted orders can be approved");
+            throw new BusinessException("仅草稿或已提交盘点单可审核");
         }
         LambdaQueryWrapper<StockCheckItem> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(StockCheckItem::getCheckOrderId, orderId);
@@ -89,6 +98,9 @@ public class StockCheckServiceImpl extends ServiceImpl<StockCheckOrderMapper, St
         return order;
     }
 
+    /**
+     * 分页查询盘点单。
+     */
     @Override
     public IPage<StockCheckOrder> pageList(int pageNo, int pageSize, Long warehouseId, String status) {
         LambdaQueryWrapper<StockCheckOrder> wrapper = new LambdaQueryWrapper<>();

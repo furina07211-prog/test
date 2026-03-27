@@ -2,7 +2,7 @@
   <div class="layout-root">
     <aside class="layout-nav">
       <div class="brand-zone">
-        <span class="brand-mark">FW</span>
+        <span class="brand-mark">果仓</span>
         <div>
           <h1>水果仓库管理系统</h1>
           <p>批发仓储与智能决策工作台</p>

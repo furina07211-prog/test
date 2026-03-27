@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @MapperScan({
     "com.fruit.warehouse.module.user.mapper",
     "com.fruit.warehouse.module.basic.mapper",
+    "com.fruit.warehouse.module.ai.mapper",
     "com.fruit.warehouse.module.dashboard.mapper",
     "com.fruit.warehouse.module.inventory.mapper",
     "com.fruit.warehouse.module.purchase.mapper",

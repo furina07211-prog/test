@@ -17,7 +17,7 @@
     </div>
 
     <div class="list-card card">
-      <el-table :data="tableData" class="app-table" stripe v-loading="loading">
+      <el-table :data="tableData" class="app-table" stripe v-loading="loading" element-loading-text="加载中">
         <el-table-column prop="salesNo" label="销售单号" width="170" />
         <el-table-column prop="customerName" label="客户" min-width="140" />
         <el-table-column prop="warehouseName" label="仓库" min-width="130" />

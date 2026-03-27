@@ -9,7 +9,7 @@
     </div>
 
     <div class="list-card card">
-      <el-table :data="tableData" class="app-table" stripe :row-class-name="rowClassName" v-loading="loading">
+      <el-table :data="tableData" class="app-table" stripe :row-class-name="rowClassName" v-loading="loading" element-loading-text="加载中">
         <el-table-column prop="batchNo" label="批次号" width="140" />
         <el-table-column prop="fruitName" label="水果" min-width="140" />
         <el-table-column prop="warehouseName" label="仓库" min-width="140" />

@@ -1,8 +1,8 @@
 package com.fruit.warehouse.module.sales.entity;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
-import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.math.BigDecimal;
@@ -18,6 +18,7 @@ public class SalesOrderItem {
     private Long fruitId;
     private Long batchId;
     private BigDecimal quantity;
+    @TableField("shipped_qty")
     private BigDecimal shippedQty;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;

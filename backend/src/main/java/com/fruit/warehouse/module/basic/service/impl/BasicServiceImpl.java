@@ -19,6 +19,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 基础资料 模块服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 public class BasicServiceImpl implements BasicService {

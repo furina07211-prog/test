@@ -62,6 +62,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * AI智能助手 模块服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 public class AiAssistantServiceImpl implements AiAssistantService {
@@ -98,6 +101,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final SalesOrderMapper salesOrderMapper;
     private final DashboardQueryMapper dashboardQueryMapper;
 
+    /**
+     * 智能助手分发：识别意图并返回查询结果或待确认预览。
+     */
     @Override
     public AiAssistantDispatchResponse dispatch(AiAssistantDispatchRequest request) {
         String message = request == null ? null : request.getMessage();
@@ -147,6 +153,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         return response;
     }
 
+    /**
+     * 智能助手确认：对待执行动作进行确认/取消。
+     */
     @Override
     public AiAssistantConfirmResponse confirm(AiAssistantConfirmRequest request) {
         if (request == null || !StringUtils.hasText(request.getActionId())) {
@@ -227,6 +236,9 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         return response;
     }
 
+    /**
+     * 查询会话历史并转换为前端展示结构。
+     */
     @Override
     public IPage<AiAssistantHistoryItem> history(String sessionId, Integer pageNo, Integer pageSize) {
         if (!StringUtils.hasText(sessionId)) {

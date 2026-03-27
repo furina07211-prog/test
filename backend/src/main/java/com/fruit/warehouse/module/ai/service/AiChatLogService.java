@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.fruit.warehouse.module.ai.entity.AiChatLog;
 
+/**
+ * AI智能助手 模块服务接口。
+ */
 public interface AiChatLogService extends IService<AiChatLog> {
     void log(Long userId,
              String sessionId,

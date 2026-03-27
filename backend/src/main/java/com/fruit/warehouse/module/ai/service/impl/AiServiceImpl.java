@@ -11,6 +11,13 @@ import com.fruit.warehouse.module.ai.dto.AiIntentResult;
 import com.fruit.warehouse.module.ai.service.AiIntentService;
 import com.fruit.warehouse.module.ai.service.AiService;
 import com.fruit.warehouse.module.ai.service.AiToolQueryService;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -20,14 +27,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.Disposable;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -45,35 +44,32 @@ public class AiServiceImpl implements AiService {
     public AiChatResponse chat(AiChatRequest request) {
         Optional<AiIntentResult> intent = aiIntentService.detect(request.getMessage());
         if (intent.isPresent()) {
-            String answer = aiToolQueryService.execute(intent.get());
-            return AiChatResponse.builder()
-                .answer(answer)
-                .provider("tool")
-                .model("intent-router")
-                .fallback(true)
-                .usage(Map.of("source", "intent"))
-                .build();
+            return buildRuleResponse(aiToolQueryService.execute(intent.get()), "intent");
         }
 
-        validateAiConfig();
+        if (useLocalRuleMode()) {
+            return buildRuleResponse(defaultRuleAnswer(request.getMessage()), "local-fallback");
+        }
+
+        requireRemoteAiAvailable();
 
         Map<String, Object> body = buildChatBody(request, false);
         try {
             String response = buildClient()
-                .post()
-                .uri("/v1/chat/completions")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(body)
-                .retrieve()
-                .bodyToMono(String.class)
-                .timeout(Duration.ofMillis(aiProperties.getTimeoutMs()))
-                .block();
+                    .post()
+                    .uri("/v1/chat/completions")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(aiProperties.getTimeoutMs()))
+                    .block();
 
             return parseNonStreamResponse(response);
         } catch (WebClientResponseException e) {
-            throw new BusinessException("AI service error: " + extractWebClientMessage(e));
+            throw new BusinessException("AI服务调用异常：" + extractWebClientMessage(e));
         } catch (Exception e) {
-            throw new BusinessException("AI request failed: " + e.getMessage());
+            throw new BusinessException("AI请求失败：" + e.getMessage());
         }
     }
 
@@ -81,46 +77,72 @@ public class AiServiceImpl implements AiService {
     public void chatStream(AiChatRequest request, SseEmitter emitter) {
         Optional<AiIntentResult> intent = aiIntentService.detect(request.getMessage());
         if (intent.isPresent()) {
-            try {
-                emitter.send(SseEmitter.event().name("chunk").data(aiToolQueryService.execute(intent.get())));
-                emitter.send(SseEmitter.event().name("done").data("[DONE]"));
-                emitter.complete();
-                return;
-            } catch (IOException e) {
-                emitter.completeWithError(e);
-                return;
-            }
+            sendRuleStream(emitter, aiToolQueryService.execute(intent.get()));
+            return;
         }
 
-        validateAiConfig();
+        if (useLocalRuleMode()) {
+            sendRuleStream(emitter, defaultRuleAnswer(request.getMessage()));
+            return;
+        }
+
+        requireRemoteAiAvailable();
 
         Map<String, Object> body = buildChatBody(request, true);
         StringBuilder lineBuffer = new StringBuilder();
 
         Disposable disposable = buildClient()
-            .post()
-            .uri("/v1/chat/completions")
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(body)
-            .retrieve()
-            .bodyToFlux(String.class)
-            .timeout(Duration.ofMillis(aiProperties.getTimeoutMs()))
-            .subscribe(
-                chunk -> parseStreamChunk(chunk, lineBuffer, emitter),
-                error -> completeWithError(emitter, "AI stream failed: " + error.getMessage()),
-                () -> {
-                    flushRemaining(lineBuffer, emitter);
-                    safeSendDone(emitter);
-                    emitter.complete();
-                }
-            );
+                .post()
+                .uri("/v1/chat/completions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToFlux(String.class)
+                .timeout(Duration.ofMillis(aiProperties.getTimeoutMs()))
+                .subscribe(
+                        chunk -> parseStreamChunk(chunk, lineBuffer, emitter),
+                        error -> completeWithError(emitter, "AI流式对话失败：" + error.getMessage()),
+                        () -> {
+                            flushRemaining(lineBuffer, emitter);
+                            safeSendDone(emitter);
+                            emitter.complete();
+                        }
+                );
 
         emitter.onTimeout(() -> {
             disposable.dispose();
-            completeWithError(emitter, "AI stream timeout");
+            completeWithError(emitter, "AI流式对话超时");
         });
         emitter.onCompletion(disposable::dispose);
         emitter.onError(ex -> disposable.dispose());
+    }
+
+    private void sendRuleStream(SseEmitter emitter, String answer) {
+        try {
+            emitter.send(SseEmitter.event().name("chunk").data(answer));
+            safeSendDone(emitter);
+            emitter.complete();
+        } catch (IOException e) {
+            completeWithError(emitter, "本地规则流式响应失败：" + e.getMessage());
+        }
+    }
+
+    private AiChatResponse buildRuleResponse(String answer, String source) {
+        return AiChatResponse.builder()
+                .answer(answer)
+                .provider("local-rule")
+                .model("rule-fallback")
+                .fallback(true)
+                .usage(Map.of("source", source))
+                .build();
+    }
+
+    private boolean useLocalRuleMode() {
+        return !aiProperties.isEnabled() || !StringUtils.hasText(aiProperties.getApiKey());
+    }
+
+    private String defaultRuleAnswer(String message) {
+        return "当前未配置大模型Key，已切换本地规则模式。你可以继续提问：查库存、生成销售报表、查询采购建议。";
     }
 
     private void parseStreamChunk(String chunk, StringBuilder lineBuffer, SseEmitter emitter) {
@@ -161,13 +183,13 @@ public class AiServiceImpl implements AiService {
                 emitter.send(SseEmitter.event().name("chunk").data(delta.asText()));
             }
         } catch (Exception e) {
-            completeWithError(emitter, "AI stream parse error: " + e.getMessage());
+            completeWithError(emitter, "AI流式响应解析失败：" + e.getMessage());
         }
     }
 
     private AiChatResponse parseNonStreamResponse(String response) {
         if (!StringUtils.hasText(response)) {
-            throw new BusinessException("AI service returned empty response");
+            throw new BusinessException("AI服务返回为空");
         }
         try {
             JsonNode root = objectMapper.readTree(response);
@@ -178,17 +200,17 @@ public class AiServiceImpl implements AiService {
                 usage = objectMapper.convertValue(usageNode, Map.class);
             }
             if (!StringUtils.hasText(answer)) {
-                throw new BusinessException("AI response did not include answer text");
+                throw new BusinessException("AI响应未包含答案文本");
             }
             return AiChatResponse.builder()
-                .answer(answer)
-                .provider(aiProperties.getProvider())
-                .model(aiProperties.getModel())
-                .fallback(false)
-                .usage(usage)
-                .build();
+                    .answer(answer)
+                    .provider(aiProperties.getProvider())
+                    .model(aiProperties.getModel())
+                    .fallback(false)
+                    .usage(usage)
+                    .build();
         } catch (JsonProcessingException e) {
-            throw new BusinessException("Failed to parse AI response: " + e.getMessage());
+            throw new BusinessException("AI响应解析失败：" + e.getMessage());
         }
     }
 
@@ -218,10 +240,10 @@ public class AiServiceImpl implements AiService {
 
     private WebClient buildClient() {
         return webClientBuilder
-            .baseUrl(normalizeBaseUrl(aiProperties.getBaseUrl()))
-            .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + aiProperties.getApiKey())
-            .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
-            .build();
+                .baseUrl(normalizeBaseUrl(aiProperties.getBaseUrl()))
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + aiProperties.getApiKey())
+                .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .build();
     }
 
     private String normalizeBaseUrl(String baseUrl) {
@@ -234,12 +256,12 @@ public class AiServiceImpl implements AiService {
         return baseUrl;
     }
 
-    private void validateAiConfig() {
+    private void requireRemoteAiAvailable() {
         if (!aiProperties.isEnabled()) {
-            throw new BusinessException("AI feature is disabled");
+            throw new BusinessException("AI功能未启用");
         }
         if (!StringUtils.hasText(aiProperties.getApiKey())) {
-            throw new BusinessException("AI API key is not configured");
+            throw new BusinessException("AI API Key 未配置");
         }
     }
 

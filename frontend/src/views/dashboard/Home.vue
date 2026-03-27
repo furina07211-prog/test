@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="dashboard-page" v-loading="refreshing">
+  <div class="dashboard-page" v-loading="refreshing" element-loading-text="加载中">
     <div class="dashboard-header card">
       <div>
         <h2>经营数据看板</h2>
@@ -15,7 +15,7 @@
     <template v-else>
       <section class="kpi-grid">
         <div class="kpi-card card">
-          <div class="kpi-label">总库存SKU数</div>
+          <div class="kpi-label">库存品种总数</div>
           <div class="kpi-value">{{ overview.totalStockSku }}</div>
         </div>
         <div class="kpi-card card">
@@ -46,7 +46,7 @@
         </div>
 
         <div class="card chart-card top-card">
-          <div class="chart-title">近30天销量TOP5水果</div>
+          <div class="chart-title">近30天销量前5水果</div>
           <div v-if="hasTopData" ref="topRef" class="chart"></div>
           <el-empty v-else description="暂无数据" />
         </div>

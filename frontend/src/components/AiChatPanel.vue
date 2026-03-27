@@ -23,7 +23,7 @@
         <span>查询类</span>
         <el-button size="small" @click="usePrompt('查询当前库存预警')">查预警</el-button>
         <el-button size="small" @click="usePrompt('查询7天内临期商品')">查临期</el-button>
-        <el-button size="small" @click="usePrompt('给我近30天销量TOP5')">查排行</el-button>
+        <el-button size="small" @click="usePrompt('给我近30天销量前5')">查排行</el-button>
       </div>
       <div class="quick-group">
         <span>报表类</span>
@@ -32,7 +32,7 @@
       </div>
     </div>
 
-    <div class="chat-log" ref="logRef" v-loading="historyLoading">
+    <div class="chat-log" ref="logRef" v-loading="historyLoading" element-loading-text="加载中">
       <div v-for="item in messages" :key="item.id" :class="['bubble', item.role]">
         <template v-if="item.kind === 'confirm'">
           <div class="content">{{ item.content }}</div>
@@ -41,7 +41,7 @@
             <el-descriptions-item label="业务对象">{{ item.preview?.partnerName || '-' }}</el-descriptions-item>
             <el-descriptions-item label="仓库">{{ item.preview?.warehouseName || '-' }}</el-descriptions-item>
             <el-descriptions-item label="水果">{{ item.preview?.fruitName || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="数量">{{ item.preview?.quantityKg ?? '-' }} kg</el-descriptions-item>
+            <el-descriptions-item label="数量">{{ item.preview?.quantityKg ?? '-' }} 千克</el-descriptions-item>
             <el-descriptions-item label="单价">{{ item.preview?.unitPrice ?? '-' }}</el-descriptions-item>
             <el-descriptions-item label="预计金额">{{ item.preview?.estimatedAmount ?? '-' }}</el-descriptions-item>
           </el-descriptions>
@@ -416,4 +416,3 @@ onMounted(async () => {
   gap: 10px;
 }
 </style>
-

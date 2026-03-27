@@ -44,9 +44,9 @@ fruit:
     temperature: 0.3
     max-tokens: 1024
   algorithm:
-    python-command: ../.venv-ai/Scripts/python.exe
+    python-command: python
     script-path: ../ai-algorithm/scripts/predict_cli.py
-    test-data-sql-path: ../sql/test_data.sql
+    test-data-sql-path: ../sql/_seed_ascii.sql
     timeout-seconds: 120
     default-safety-days: 3
     auto-enabled: false

@@ -2,6 +2,7 @@ package com.fruit.warehouse.module.purchase.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.fruit.warehouse.common.result.Result;
+import com.fruit.warehouse.common.result.Results;
 import com.fruit.warehouse.module.purchase.dto.PurchaseOrderCreateRequest;
 import com.fruit.warehouse.module.purchase.dto.PurchaseOrderPageQuery;
 import com.fruit.warehouse.module.purchase.dto.PurchaseReceiveRequest;
@@ -20,6 +21,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 采购管理 模块控制器。
+ */
 @RestController
 @RequestMapping("/api/purchase/orders")
 @RequiredArgsConstructor
@@ -27,12 +31,18 @@ public class PurchaseController {
 
     private final PurchaseService purchaseService;
 
+    /**
+     * 新建采购单（默认草稿状态）。
+     */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
     public Result<PurchaseOrder> create(@RequestBody PurchaseOrderCreateRequest request) {
-        return Result.success(purchaseService.createOrder(request));
+        return Results.ok(purchaseService.createOrder(request));
     }
 
+    /**
+     * 分页查询采购单列表。
+     */
     @GetMapping
     public Result<IPage<PurchaseOrderPageVO>> page(@RequestParam(defaultValue = "1") Integer pageNo,
                                                     @RequestParam(defaultValue = "10") Integer pageSize,
@@ -47,29 +57,41 @@ public class PurchaseController {
         query.setStatus(status);
         query.setSupplierId(supplierId);
         query.setWarehouseId(warehouseId);
-        return Result.success(purchaseService.pageList(query));
+        return Results.ok(purchaseService.pageList(query));
     }
 
+    /**
+     * 查询采购单明细。
+     */
     @GetMapping("/{id}/items")
     public Result<List<PurchaseOrderItemVO>> items(@PathVariable Long id) {
-        return Result.success(purchaseService.listItems(id));
+        return Results.ok(purchaseService.listItems(id));
     }
 
+    /**
+     * 提交采购单（草稿 -> 已提交）。
+     */
     @PostMapping("/{id}/submit")
     @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
     public Result<PurchaseOrder> submit(@PathVariable Long id) {
-        return Result.success(purchaseService.submit(id));
+        return Results.ok(purchaseService.submit(id));
     }
 
+    /**
+     * 审核采购单（已提交 -> 已审核）。
+     */
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
     public Result<PurchaseOrder> approve(@PathVariable Long id) {
-        return Result.success(purchaseService.approve(id));
+        return Results.ok(purchaseService.approve(id));
     }
 
+    /**
+     * 分批收货并更新库存批次。
+     */
     @PostMapping("/{id}/receive")
     @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
     public Result<PurchaseOrder> receive(@PathVariable Long id, @RequestBody PurchaseReceiveRequest request) {
-        return Result.success(purchaseService.receive(id, request));
+        return Results.ok(purchaseService.receive(id, request));
     }
 }

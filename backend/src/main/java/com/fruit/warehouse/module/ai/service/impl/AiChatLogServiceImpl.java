@@ -10,6 +10,9 @@ import com.fruit.warehouse.module.ai.service.AiChatLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+/**
+ * AI智能助手 模块服务实现。
+ */
 @Service
 public class AiChatLogServiceImpl extends ServiceImpl<AiChatLogMapper, AiChatLog> implements AiChatLogService {
 

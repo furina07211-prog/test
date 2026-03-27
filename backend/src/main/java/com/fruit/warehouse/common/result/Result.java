@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Unified API response wrapper.
+ * 统一接口返回对象。
  */
 @Data
 @NoArgsConstructor
@@ -16,15 +16,24 @@ public class Result<T> {
     private String message;
     private T data;
 
+    /**
+     * 兼容旧代码的成功返回工厂方法，内部委托给 {@link Results}。
+     */
     public static <T> Result<T> success(T data) {
-        return new Result<>(200, "success", data);
+        return Results.ok(data);
     }
 
+    /**
+     * 兼容旧代码的空成功返回。
+     */
     public static Result<Void> success() {
-        return new Result<>(200, "success", null);
+        return Results.ok();
     }
 
+    /**
+     * 兼容旧代码的失败返回。
+     */
     public static Result<Void> fail(String message) {
-        return new Result<>(500, message, null);
+        return Results.fail(message);
     }
 }

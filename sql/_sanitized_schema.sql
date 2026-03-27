@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS sales_order_item (
     fruit_id BIGINT NOT NULL,
     batch_id BIGINT DEFAULT NULL,
     quantity DECIMAL(10,2) NOT NULL,
+    shipped_qty DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     unit_price DECIMAL(10,2) NOT NULL,
     subtotal DECIMAL(12,2) NOT NULL,
     remark VARCHAR(255) DEFAULT NULL,

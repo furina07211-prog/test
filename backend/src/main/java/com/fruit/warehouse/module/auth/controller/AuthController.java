@@ -21,6 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 认证鉴权 模块控制器。
+ */
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -80,7 +83,7 @@ public class AuthController {
             return true;
         }
 
-        // Compatibility for old seed data with plaintext passwords, then auto-upgrade to BCrypt.
+        // 兼容历史明文密码演示数据：首次登录成功后自动升级为 BCrypt。
         if (rawPassword.equals(dbPassword)) {
             String encoded = passwordEncoder.encode(rawPassword);
             userService.upgradePassword(user.getId(), encoded);

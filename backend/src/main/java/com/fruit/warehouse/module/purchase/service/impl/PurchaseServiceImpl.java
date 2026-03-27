@@ -40,6 +40,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * 采购管理 模块服务实现。
+ */
 @Service
 @RequiredArgsConstructor
 public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, PurchaseOrder> implements PurchaseService {
@@ -50,6 +53,9 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
     private final FruitMapper fruitMapper;
     private final InventoryService inventoryService;
 
+    /**
+     * 创建采购单：写入主单、明细并汇总金额，初始状态为草稿。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PurchaseOrder createOrder(PurchaseOrderCreateRequest request) {
@@ -91,7 +97,7 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
     public PurchaseOrder submit(Long orderId) {
         PurchaseOrder order = requireOrder(orderId);
         if (!Objects.equals("DRAFT", order.getOrderStatus())) {
-            throw new BusinessException("Only draft order can be submitted");
+            throw new BusinessException("仅草稿单可提交");
         }
         order.setOrderStatus("SUBMITTED");
         this.updateById(order);
@@ -102,49 +108,52 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
     public PurchaseOrder approve(Long orderId) {
         PurchaseOrder order = requireOrder(orderId);
         if (!Objects.equals("SUBMITTED", order.getOrderStatus())) {
-            throw new BusinessException("Only submitted order can be approved");
+            throw new BusinessException("仅已提交单据可审核");
         }
         order.setOrderStatus("APPROVED");
         this.updateById(order);
         return order;
     }
 
+    /**
+     * 分批收货：校验本次收货数量后入库，全部收齐则更新为已入库状态。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PurchaseOrder receive(Long orderId, PurchaseReceiveRequest request) {
         PurchaseOrder order = requireOrder(orderId);
         if (!Objects.equals("APPROVED", order.getOrderStatus())) {
-            throw new BusinessException("Only approved order can be received");
+            throw new BusinessException("仅已审核单据可收货");
         }
         if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
-            throw new BusinessException("Receive items cannot be empty");
+            throw new BusinessException("收货明细不能为空");
         }
 
         List<PurchaseOrderItem> dbItems = itemMapper.selectList(
                 new LambdaQueryWrapper<PurchaseOrderItem>().eq(PurchaseOrderItem::getPurchaseOrderId, orderId));
         if (dbItems.isEmpty()) {
-            throw new BusinessException("Purchase order has no items");
+            throw new BusinessException("采购单无明细数据");
         }
         Map<Long, PurchaseOrderItem> itemMap = dbItems.stream()
                 .collect(Collectors.toMap(PurchaseOrderItem::getId, item -> item, (a, b) -> a, LinkedHashMap::new));
 
         for (PurchaseReceiveRequest.ReceiveItem receiveItem : request.getItems()) {
             if (receiveItem == null || receiveItem.getItemId() == null) {
-                throw new BusinessException("Receive item is invalid");
+                throw new BusinessException("收货明细参数无效");
             }
             PurchaseOrderItem item = itemMap.get(receiveItem.getItemId());
             if (item == null) {
-                throw new BusinessException("Purchase item not found: " + receiveItem.getItemId());
+                throw new BusinessException("采购明细不存在：" + receiveItem.getItemId());
             }
             BigDecimal receiveQty = nvl(receiveItem.resolveReceiveQty());
             if (receiveQty.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException("Receive qty must be greater than 0");
+                throw new BusinessException("收货数量必须大于0");
             }
 
             BigDecimal currentReceived = nvl(item.getReceivedQty());
             BigDecimal pendingQty = nvl(item.getQuantity()).subtract(currentReceived);
             if (receiveQty.compareTo(pendingQty) > 0) {
-                throw new BusinessException("Receive qty exceeds pending qty for item " + item.getId());
+                throw new BusinessException("收货数量超过待收数量，明细ID：" + item.getId());
             }
 
             BigDecimal newReceived = currentReceived.add(receiveQty);
@@ -179,6 +188,9 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
         return order;
     }
 
+    /**
+     * 分页查询采购单，并补齐供应商/仓库名称与收货进度字段。
+     */
     @Override
     public IPage<PurchaseOrderPageVO> pageList(PurchaseOrderPageQuery query) {
         PurchaseOrderPageQuery safeQuery = query != null ? query : new PurchaseOrderPageQuery();
@@ -258,6 +270,9 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
         return result;
     }
 
+    /**
+     * 查询采购单明细并计算待收数量。
+     */
     @Override
     public List<PurchaseOrderItemVO> listItems(Long orderId) {
         requireOrder(orderId);
@@ -299,39 +314,42 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
     private PurchaseOrder requireOrder(Long orderId) {
         PurchaseOrder order = this.getById(orderId);
         if (order == null) {
-            throw new BusinessException("Purchase order not found");
+            throw new BusinessException("采购单不存在");
         }
         return order;
     }
 
+    /**
+     * 采购单创建参数校验。
+     */
     private void validateCreateRequest(PurchaseOrderCreateRequest request) {
         if (request == null) {
-            throw new BusinessException("Request body cannot be empty");
+            throw new BusinessException("请求体不能为空");
         }
         if (request.getSupplierId() == null) {
-            throw new BusinessException("Supplier is required");
+            throw new BusinessException("供应商不能为空");
         }
         if (request.getWarehouseId() == null) {
-            throw new BusinessException("Warehouse is required");
+            throw new BusinessException("仓库不能为空");
         }
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new BusinessException("At least one purchase item is required");
+            throw new BusinessException("至少需要一条采购明细");
         }
         for (PurchaseOrderCreateRequest.PurchaseItemRequest item : request.getItems()) {
             if (item.getFruitId() == null) {
-                throw new BusinessException("Fruit is required for each item");
+                throw new BusinessException("每条明细都必须选择水果");
             }
             if (!StringUtils.hasText(item.getBatchNo())) {
-                throw new BusinessException("Batch no is required for each item");
+                throw new BusinessException("每条明细都必须填写批次号");
             }
             if (item.getExpirationDate() == null) {
-                throw new BusinessException("Expiration date is required for each item");
+                throw new BusinessException("每条明细都必须填写到期日期");
             }
             if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BusinessException("Quantity must be greater than 0");
+                throw new BusinessException("数量必须大于0");
             }
             if (item.getUnitPrice() == null || item.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
-                throw new BusinessException("Unit price cannot be negative");
+                throw new BusinessException("单价不能为负数");
             }
         }
     }
