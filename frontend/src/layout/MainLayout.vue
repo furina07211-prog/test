@@ -4,8 +4,8 @@
       <div class="brand-zone">
         <span class="brand-mark">FW</span>
         <div>
-          <h1>Fruit Warehouse</h1>
-          <p>批发仓储与 AI 决策工作台</p>
+          <h1>水果仓库管理系统</h1>
+          <p>批发仓储与智能决策工作台</p>
         </div>
       </div>
       <nav class="nav-list">
@@ -52,13 +52,13 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const navItems = [
-  { path: '/dashboard', title: '经营总览', desc: '实时看板与图表', roles: ['ADMIN', 'WAREHOUSE', 'SALES'] },
+  { path: '/dashboard', title: '数据看板', desc: '实时看板与图表', roles: ['ADMIN', 'WAREHOUSE', 'SALES'] },
   { path: '/system', title: '系统管理', desc: '用户、角色、菜单', roles: ['ADMIN'] },
   { path: '/basic', title: '基础资料', desc: '水果、供应商、客户', roles: ['ADMIN', 'WAREHOUSE', 'SALES'] },
-  { path: '/purchase', title: '采购入库', desc: '采购单与批次入库', roles: ['ADMIN', 'WAREHOUSE'] },
-  { path: '/sales', title: '销售出库', desc: '销售开单与 FEFO', roles: ['ADMIN', 'SALES'] },
-  { path: '/inventory', title: '库存盘点', desc: '批次、流水、预警', roles: ['ADMIN', 'WAREHOUSE'] },
-  { path: '/ai', title: 'AI 工作台', desc: '预测、建议、对话', roles: ['ADMIN', 'WAREHOUSE', 'SALES'] }
+  { path: '/purchase', title: '采购管理', desc: '采购单与批次入库', roles: ['ADMIN', 'WAREHOUSE'] },
+  { path: '/sales', title: '销售管理', desc: '销售开单与先进先出', roles: ['ADMIN', 'SALES'] },
+  { path: '/inventory', title: '库存管理', desc: '批次、流水、预警', roles: ['ADMIN', 'WAREHOUSE'] },
+  { path: '/ai', title: '智能助手', desc: '预测、建议、对话', roles: ['ADMIN', 'WAREHOUSE', 'SALES'] }
 ]
 
 const visibleNav = computed(() => navItems.filter((item) => item.roles.some((role) => authStore.roles.includes(role))))

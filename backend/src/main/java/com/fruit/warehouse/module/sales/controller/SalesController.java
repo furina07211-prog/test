@@ -3,11 +3,12 @@ package com.fruit.warehouse.module.sales.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.fruit.warehouse.common.result.Result;
 import com.fruit.warehouse.module.sales.dto.SalesOrderCreateRequest;
+import com.fruit.warehouse.module.sales.dto.SalesOrderPageQuery;
 import com.fruit.warehouse.module.sales.dto.SalesShipRequest;
 import com.fruit.warehouse.module.sales.entity.SalesOrder;
-import com.fruit.warehouse.module.sales.entity.SalesOrderItem;
-import com.fruit.warehouse.module.sales.mapper.SalesOrderItemMapper;
 import com.fruit.warehouse.module.sales.service.SalesService;
+import com.fruit.warehouse.module.sales.vo.SalesOrderItemVO;
+import com.fruit.warehouse.module.sales.vo.SalesOrderPageVO;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class SalesController {
 
     private final SalesService salesService;
-    private final SalesOrderItemMapper itemMapper;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','SALES')")
@@ -34,18 +34,25 @@ public class SalesController {
     }
 
     @GetMapping
-    public Result<IPage<SalesOrder>> page(@RequestParam(defaultValue = "1") int pageNo,
-                                          @RequestParam(defaultValue = "10") int pageSize,
-                                          @RequestParam(required = false) String status,
-                                          @RequestParam(required = false) Long customerId) {
-        return Result.success(salesService.pageList(pageNo, pageSize, status, customerId));
+    public Result<IPage<SalesOrderPageVO>> page(@RequestParam(defaultValue = "1") Integer pageNo,
+                                                @RequestParam(defaultValue = "10") Integer pageSize,
+                                                @RequestParam(required = false) String salesNo,
+                                                @RequestParam(required = false) String status,
+                                                @RequestParam(required = false) Long customerId,
+                                                @RequestParam(required = false) Long warehouseId) {
+        SalesOrderPageQuery query = new SalesOrderPageQuery();
+        query.setPageNo(pageNo);
+        query.setPageSize(pageSize);
+        query.setSalesNo(salesNo);
+        query.setStatus(status);
+        query.setCustomerId(customerId);
+        query.setWarehouseId(warehouseId);
+        return Result.success(salesService.pageList(query));
     }
 
     @GetMapping("/{id}/items")
-    public Result<List<SalesOrderItem>> items(@PathVariable Long id) {
-        return Result.success(itemMapper.selectList(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SalesOrderItem>()
-                        .eq(SalesOrderItem::getSalesOrderId, id)));
+    public Result<List<SalesOrderItemVO>> items(@PathVariable Long id) {
+        return Result.success(salesService.listItems(id));
     }
 
     @PostMapping("/{id}/submit")

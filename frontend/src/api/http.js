@@ -21,7 +21,7 @@ http.interceptors.response.use(
       return payload.data
     }
     ElMessage.error(payload?.message || '请求失败')
-    return Promise.reject(new Error(payload?.message || 'Request failed'))
+    return Promise.reject(new Error(payload?.message || '请求失败'))
   },
   (error) => {
     ElMessage.error(error?.response?.data?.message || error.message || '网络异常')

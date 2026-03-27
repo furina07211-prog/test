@@ -7,11 +7,16 @@ import com.fruit.warehouse.module.basic.entity.Fruit;
 import com.fruit.warehouse.module.basic.mapper.FruitMapper;
 import com.fruit.warehouse.module.dashboard.config.DashboardProperties;
 import com.fruit.warehouse.module.dashboard.dto.DailyPoint;
+import com.fruit.warehouse.module.dashboard.dto.DashboardOverviewResponse;
 import com.fruit.warehouse.module.dashboard.dto.ForecastRunRequest;
 import com.fruit.warehouse.module.dashboard.dto.ForecastTrendResponse;
 import com.fruit.warehouse.module.dashboard.dto.HeatmapPoint;
+import com.fruit.warehouse.module.dashboard.dto.InventoryCategoryRatioPoint;
 import com.fruit.warehouse.module.dashboard.dto.OptimizeRunRequest;
+import com.fruit.warehouse.module.dashboard.dto.SalesTopPoint;
 import com.fruit.warehouse.module.dashboard.dto.StockSummaryPoint;
+import com.fruit.warehouse.module.dashboard.dto.TrendAmountPoint;
+import com.fruit.warehouse.module.dashboard.dto.WarningItemPoint;
 import com.fruit.warehouse.module.dashboard.entity.AiForecastResult;
 import com.fruit.warehouse.module.dashboard.entity.AiPurchaseSuggestion;
 import com.fruit.warehouse.module.dashboard.mapper.AiForecastResultMapper;
@@ -28,6 +33,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +59,74 @@ public class DashboardServiceImpl implements DashboardService {
     private String datasourceUsername;
     @Value("${spring.datasource.password:}")
     private String datasourcePassword;
+
+    @Override
+    public DashboardOverviewResponse getOverview() {
+        DashboardOverviewResponse response = new DashboardOverviewResponse();
+        response.setTotalStockSku(safeLong(dashboardQueryMapper.countStockSku()));
+        response.setTodayPurchaseAmount(safeDecimal(dashboardQueryMapper.sumTodayPurchaseAmount()));
+        response.setTodaySalesAmount(safeDecimal(dashboardQueryMapper.sumTodaySalesAmount()));
+        response.setWarningFruitCount(safeLong(dashboardQueryMapper.countUnhandledWarningFruits()));
+        return response;
+    }
+
+    @Override
+    public List<TrendAmountPoint> getAmountTrend(Integer days) {
+        int actualDays = days == null || days <= 0 ? 7 : Math.min(days, 90);
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(actualDays - 1L);
+
+        List<DailyPoint> purchaseRows = dashboardQueryMapper.selectPurchaseAmountTrend(startDate, endDate);
+        List<DailyPoint> salesRows = dashboardQueryMapper.selectSalesAmountTrend(startDate, endDate);
+
+        Map<LocalDate, BigDecimal> purchaseMap = new HashMap<>();
+        for (DailyPoint row : purchaseRows) {
+            if (row != null && row.getDate() != null) {
+                purchaseMap.put(row.getDate(), safeDecimal(row.getQty()));
+            }
+        }
+
+        Map<LocalDate, BigDecimal> salesMap = new HashMap<>();
+        for (DailyPoint row : salesRows) {
+            if (row != null && row.getDate() != null) {
+                salesMap.put(row.getDate(), safeDecimal(row.getQty()));
+            }
+        }
+
+        List<TrendAmountPoint> result = new ArrayList<>(actualDays);
+        for (int i = 0; i < actualDays; i++) {
+            LocalDate date = startDate.plusDays(i);
+            TrendAmountPoint point = new TrendAmountPoint();
+            point.setDate(date);
+            point.setPurchaseAmount(purchaseMap.getOrDefault(date, BigDecimal.ZERO));
+            point.setSalesAmount(salesMap.getOrDefault(date, BigDecimal.ZERO));
+            result.add(point);
+        }
+        return result;
+    }
+
+    @Override
+    public List<InventoryCategoryRatioPoint> getInventoryCategoryRatio() {
+        List<InventoryCategoryRatioPoint> rows = dashboardQueryMapper.selectInventoryCategoryRatio();
+        return rows == null ? Collections.emptyList() : rows;
+    }
+
+    @Override
+    public List<SalesTopPoint> getSalesTop(Integer days, Integer limit) {
+        int actualDays = days == null || days <= 0 ? 30 : Math.min(days, 365);
+        int actualLimit = limit == null || limit <= 0 ? 5 : Math.min(limit, 20);
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(actualDays - 1L);
+        List<SalesTopPoint> rows = dashboardQueryMapper.selectSalesTop(startDate, endDate, actualLimit);
+        return rows == null ? Collections.emptyList() : rows;
+    }
+
+    @Override
+    public List<WarningItemPoint> getWarnings(Integer limit) {
+        int actualLimit = limit == null || limit <= 0 ? 20 : Math.min(limit, 100);
+        List<WarningItemPoint> rows = dashboardQueryMapper.selectWarningItems(actualLimit);
+        return rows == null ? Collections.emptyList() : rows;
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -299,5 +373,13 @@ public class DashboardServiceImpl implements DashboardService {
 
     private String key(Long fruitId, Long warehouseId) {
         return fruitId + "#" + warehouseId;
+    }
+
+    private BigDecimal safeDecimal(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private Long safeLong(Long value) {
+        return value == null ? 0L : value;
     }
 }

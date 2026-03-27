@@ -2,9 +2,9 @@
   <div class="login-root">
     <section class="login-poster">
       <div class="poster-copy">
-        <span>Fruit Warehouse Manage</span>
+        <span>水果仓库管理系统</span>
         <h1>水果批发仓库管理系统</h1>
-        <p>围绕采购入库、销售出库、库存盘点与 AI 采购建议，构建完整的仓储运营闭环。</p>
+        <p>围绕采购入库、销售出库、库存盘点与智能采购建议，构建完整的仓储运营闭环。</p>
       </div>
       <div class="poster-band">
         <div>
@@ -13,7 +13,7 @@
         </div>
         <div>
           <strong>销量预测</strong>
-          <small>Python 算法直接落地</small>
+          <small>预测算法直接落地</small>
         </div>
         <div>
           <strong>预警热力图</strong>

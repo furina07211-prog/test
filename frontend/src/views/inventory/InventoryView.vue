@@ -1,50 +1,55 @@
 ﻿<template>
   <div class="page-padding">
-    <div class="card" style="margin-bottom:16px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
-      <el-input v-model="query.fruitName" placeholder="按水果名称" style="width:200px" clearable />
-      <el-input v-model="query.batchNo" placeholder="按批次号" style="width:200px" clearable />
+    <div class="card page-toolbar">
+      <el-input v-model="query.fruitName" placeholder="按水果名称" style="width: 200px" clearable />
+      <el-input v-model="query.batchNo" placeholder="按批次号" style="width: 200px" clearable />
       <el-button type="primary" @click="loadData">查询</el-button>
       <el-button @click="reset">重置</el-button>
       <el-button type="success" @click="openCreate">新增批次</el-button>
     </div>
 
-    <div class="card">
-      <el-table :data="tableData" stripe style="width:100%" :row-class-name="rowClassName" v-loading="loading">
+    <div class="list-card card">
+      <el-table :data="tableData" class="app-table" stripe :row-class-name="rowClassName" v-loading="loading">
         <el-table-column prop="batchNo" label="批次号" width="140" />
         <el-table-column prop="fruitName" label="水果" min-width="140" />
         <el-table-column prop="warehouseName" label="仓库" min-width="140" />
         <el-table-column prop="availableQty" label="可用库存" width="120" />
         <el-table-column prop="safeStock" label="安全库存" width="120" />
         <el-table-column prop="expirationDate" label="到期日" width="140" />
-        <el-table-column prop="status" label="状态" width="120" />
+        <el-table-column prop="status" label="状态" width="120">
+          <template #default="scope">{{ formatStatus(scope.row.status) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="200">
           <template #default="scope">
-            <el-button size="small" @click="openEdit(scope.row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
+            <div class="table-actions">
+              <el-button size="small" @click="openEdit(scope.row)">编辑</el-button>
+              <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
-      <div style="margin-top:12px; text-align:right;">
+
+      <div class="app-pagination">
         <el-pagination
           background
           layout="prev, pager, next, jumper, ->, total"
           :current-page="query.pageNo"
           :page-size="query.pageSize"
           :total="total"
-          @current-change="(p)=>{query.pageNo=p;loadData();}"
+          @current-change="(p) => { query.pageNo = p; loadData() }"
         />
       </div>
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑批次' : '新增批次'" width="540px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑批次' : '新增批次'" width="560px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" :hide-required-asterisk="false" require-asterisk-position="left">
         <el-form-item label="水果" prop="fruitId">
-          <el-select v-model="form.fruitId" filterable placeholder="选择水果" style="width:100%">
+          <el-select v-model="form.fruitId" filterable placeholder="选择水果" style="width: 100%">
             <el-option v-for="f in fruitOptions" :key="f.id" :label="f.fruitName" :value="f.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="仓库" prop="warehouseId">
-          <el-select v-model="form.warehouseId" placeholder="选择仓库" style="width:100%">
+          <el-select v-model="form.warehouseId" placeholder="选择仓库" style="width: 100%">
             <el-option v-for="w in warehouseOptions" :key="w.id" :label="w.warehouseName || w.name" :value="w.id" />
           </el-select>
         </el-form-item>
@@ -52,22 +57,22 @@
           <el-input v-model="form.batchNo" />
         </el-form-item>
         <el-form-item label="生产日期" prop="productionDate">
-          <el-date-picker v-model="form.productionDate" type="date" style="width:100%" />
+          <el-date-picker v-model="form.productionDate" type="date" style="width: 100%" />
         </el-form-item>
         <el-form-item label="到期日" prop="expirationDate">
-          <el-date-picker v-model="form.expirationDate" type="date" style="width:100%" />
+          <el-date-picker v-model="form.expirationDate" type="date" style="width: 100%" />
         </el-form-item>
         <el-form-item label="总数量" prop="totalQty">
-          <el-input-number v-model="form.totalQty" :min="0" :precision="2" style="width:100%" />
+          <el-input-number v-model="form.totalQty" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item label="可用数量" prop="availableQty">
-          <el-input-number v-model="form.availableQty" :min="0" :precision="2" style="width:100%" />
+          <el-input-number v-model="form.availableQty" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item label="单位成本" prop="unitCost">
-          <el-input-number v-model="form.unitCost" :min="0" :precision="2" style="width:100%" />
+          <el-input-number v-model="form.unitCost" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="form.status" style="width:100%">
+          <el-select v-model="form.status" style="width: 100%">
             <el-option label="在库" value="IN_STOCK" />
             <el-option label="冻结" value="LOCKED" />
             <el-option label="失效" value="EXPIRED" />
@@ -75,7 +80,7 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible=false">取消</el-button>
+        <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="submitForm">保存</el-button>
       </template>
     </el-dialog>
@@ -83,7 +88,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { inventoryApi, basicApi } from '@/api/modules'
 
@@ -119,11 +124,19 @@ const rules = {
 const fruitOptions = ref([])
 const warehouseOptions = ref([])
 
+const STATUS_LABEL_MAP = {
+  IN_STOCK: '在库',
+  LOCKED: '冻结',
+  EXPIRED: '失效'
+}
+
+const formatStatus = (status) => STATUS_LABEL_MAP[status] || status || '-'
+
 const safeValue = (row) => row.safeStockQty ?? row.safe_stock_qty ?? row.safeStock ?? 0
 
 const rowClassName = ({ row }) => {
   const safe = safeValue(row)
-  if (safe && Number(row.availableQty) <= Number(safe)) return 'row-low'
+  if (safe && Number(row.availableQty) <= Number(safe)) return 'warning-row'
   return ''
 }
 
@@ -204,9 +217,3 @@ onMounted(() => {
   loadData()
 })
 </script>
-
-<style scoped>
-.row-low {
-  --el-table-tr-bg-color: #fff1f1;
-}
-</style>

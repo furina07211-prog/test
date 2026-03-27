@@ -5,39 +5,62 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fruit.warehouse.common.exception.BusinessException;
+import com.fruit.warehouse.module.basic.entity.Fruit;
+import com.fruit.warehouse.module.basic.entity.Supplier;
+import com.fruit.warehouse.module.basic.entity.Warehouse;
+import com.fruit.warehouse.module.basic.mapper.FruitMapper;
+import com.fruit.warehouse.module.basic.mapper.SupplierMapper;
+import com.fruit.warehouse.module.basic.mapper.WarehouseMapper;
 import com.fruit.warehouse.module.inventory.entity.InventoryBatch;
 import com.fruit.warehouse.module.inventory.service.InventoryService;
 import com.fruit.warehouse.module.purchase.dto.PurchaseOrderCreateRequest;
+import com.fruit.warehouse.module.purchase.dto.PurchaseOrderPageQuery;
 import com.fruit.warehouse.module.purchase.dto.PurchaseReceiveRequest;
 import com.fruit.warehouse.module.purchase.entity.PurchaseOrder;
 import com.fruit.warehouse.module.purchase.entity.PurchaseOrderItem;
 import com.fruit.warehouse.module.purchase.mapper.PurchaseOrderItemMapper;
 import com.fruit.warehouse.module.purchase.mapper.PurchaseOrderMapper;
 import com.fruit.warehouse.module.purchase.service.PurchaseService;
+import com.fruit.warehouse.module.purchase.vo.PurchaseOrderItemVO;
+import com.fruit.warehouse.module.purchase.vo.PurchaseOrderPageVO;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
 public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, PurchaseOrder> implements PurchaseService {
 
     private final PurchaseOrderItemMapper itemMapper;
+    private final SupplierMapper supplierMapper;
+    private final WarehouseMapper warehouseMapper;
+    private final FruitMapper fruitMapper;
     private final InventoryService inventoryService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PurchaseOrder createOrder(PurchaseOrderCreateRequest request) {
+        validateCreateRequest(request);
+
         PurchaseOrder order = new PurchaseOrder();
         order.setPurchaseNo("PO" + System.currentTimeMillis());
         order.setSupplierId(request.getSupplierId());
         order.setWarehouseId(request.getWarehouseId());
         order.setOrderStatus("DRAFT");
-        order.setOrderDate(request.getOrderDate());
+        order.setOrderDate(request.getOrderDate() != null ? request.getOrderDate() : LocalDate.now());
         order.setExpectedArrivalDate(request.getExpectedArrivalDate());
         order.setRemark(request.getRemark());
         BigDecimal total = BigDecimal.ZERO;
@@ -47,7 +70,7 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
             PurchaseOrderItem item = new PurchaseOrderItem();
             item.setPurchaseOrderId(order.getId());
             item.setFruitId(itemReq.getFruitId());
-            item.setBatchNo(itemReq.getBatchNo());
+            item.setBatchNo(itemReq.getBatchNo().trim());
             item.setProductionDate(itemReq.getProductionDate());
             item.setExpirationDate(itemReq.getExpirationDate());
             item.setQuantity(itemReq.getQuantity());
@@ -66,10 +89,7 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
 
     @Override
     public PurchaseOrder submit(Long orderId) {
-        PurchaseOrder order = this.getById(orderId);
-        if (order == null) {
-            throw new BusinessException("Purchase order not found");
-        }
+        PurchaseOrder order = requireOrder(orderId);
         if (!Objects.equals("DRAFT", order.getOrderStatus())) {
             throw new BusinessException("Only draft order can be submitted");
         }
@@ -80,10 +100,7 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
 
     @Override
     public PurchaseOrder approve(Long orderId) {
-        PurchaseOrder order = this.getById(orderId);
-        if (order == null) {
-            throw new BusinessException("Purchase order not found");
-        }
+        PurchaseOrder order = requireOrder(orderId);
         if (!Objects.equals("SUBMITTED", order.getOrderStatus())) {
             throw new BusinessException("Only submitted order can be approved");
         }
@@ -95,22 +112,42 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PurchaseOrder receive(Long orderId, PurchaseReceiveRequest request) {
-        PurchaseOrder order = this.getById(orderId);
-        if (order == null) {
-            throw new BusinessException("Purchase order not found");
-        }
+        PurchaseOrder order = requireOrder(orderId);
         if (!Objects.equals("APPROVED", order.getOrderStatus())) {
             throw new BusinessException("Only approved order can be received");
         }
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException("Receive items cannot be empty");
+        }
+
+        List<PurchaseOrderItem> dbItems = itemMapper.selectList(
+                new LambdaQueryWrapper<PurchaseOrderItem>().eq(PurchaseOrderItem::getPurchaseOrderId, orderId));
+        if (dbItems.isEmpty()) {
+            throw new BusinessException("Purchase order has no items");
+        }
+        Map<Long, PurchaseOrderItem> itemMap = dbItems.stream()
+                .collect(Collectors.toMap(PurchaseOrderItem::getId, item -> item, (a, b) -> a, LinkedHashMap::new));
+
         for (PurchaseReceiveRequest.ReceiveItem receiveItem : request.getItems()) {
-            PurchaseOrderItem item = itemMapper.selectById(receiveItem.getItemId());
+            if (receiveItem == null || receiveItem.getItemId() == null) {
+                throw new BusinessException("Receive item is invalid");
+            }
+            PurchaseOrderItem item = itemMap.get(receiveItem.getItemId());
             if (item == null) {
                 throw new BusinessException("Purchase item not found: " + receiveItem.getItemId());
             }
-            BigDecimal newReceived = item.getReceivedQty().add(receiveItem.getReceivedQty());
-            if (newReceived.compareTo(item.getQuantity()) > 0) {
-                throw new BusinessException("Received qty exceeds ordered qty for item " + item.getId());
+            BigDecimal receiveQty = nvl(receiveItem.resolveReceiveQty());
+            if (receiveQty.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("Receive qty must be greater than 0");
             }
+
+            BigDecimal currentReceived = nvl(item.getReceivedQty());
+            BigDecimal pendingQty = nvl(item.getQuantity()).subtract(currentReceived);
+            if (receiveQty.compareTo(pendingQty) > 0) {
+                throw new BusinessException("Receive qty exceeds pending qty for item " + item.getId());
+            }
+
+            BigDecimal newReceived = currentReceived.add(receiveQty);
             item.setReceivedQty(newReceived);
             itemMapper.updateById(item);
 
@@ -124,9 +161,18 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
             batch.setExpirationDate(item.getExpirationDate());
             batch.setUnitCost(receiveItem.getUnitCost() != null ? receiveItem.getUnitCost() : item.getUnitPrice());
             batch.setStatus("IN_STOCK");
-            inventoryService.createOrIncreaseBatch(batch, receiveItem.getReceivedQty(), "PURCHASE_IN", orderId, request.getOperatorId());
+            inventoryService.createOrIncreaseBatch(batch, receiveQty, "PURCHASE_IN", orderId, request.getOperatorId());
         }
-        order.setOrderStatus("RECEIVED");
+
+        List<PurchaseOrderItem> finalItems = itemMapper.selectList(
+                new LambdaQueryWrapper<PurchaseOrderItem>().eq(PurchaseOrderItem::getPurchaseOrderId, orderId));
+        boolean allReceived = finalItems.stream()
+                .allMatch(item -> nvl(item.getReceivedQty()).compareTo(nvl(item.getQuantity())) >= 0);
+        if (allReceived) {
+            order.setOrderStatus("RECEIVED");
+        } else {
+            order.setOrderStatus("APPROVED");
+        }
         order.setReceivedBy(request.getOperatorId());
         order.setUpdateTime(LocalDateTime.now());
         this.updateById(order);
@@ -134,11 +180,163 @@ public class PurchaseServiceImpl extends ServiceImpl<PurchaseOrderMapper, Purcha
     }
 
     @Override
-    public IPage<PurchaseOrder> pageList(int pageNo, int pageSize, String status, Long supplierId) {
+    public IPage<PurchaseOrderPageVO> pageList(PurchaseOrderPageQuery query) {
+        PurchaseOrderPageQuery safeQuery = query != null ? query : new PurchaseOrderPageQuery();
+        int pageNo = safeQuery.getPageNo() == null || safeQuery.getPageNo() < 1 ? 1 : safeQuery.getPageNo();
+        int pageSize = safeQuery.getPageSize() == null || safeQuery.getPageSize() < 1 ? 10 : safeQuery.getPageSize();
+
         LambdaQueryWrapper<PurchaseOrder> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(status != null, PurchaseOrder::getOrderStatus, status);
-        wrapper.eq(supplierId != null, PurchaseOrder::getSupplierId, supplierId);
+        wrapper.like(StringUtils.hasText(safeQuery.getPurchaseNo()), PurchaseOrder::getPurchaseNo, safeQuery.getPurchaseNo());
+        wrapper.eq(StringUtils.hasText(safeQuery.getStatus()), PurchaseOrder::getOrderStatus, safeQuery.getStatus());
+        wrapper.eq(safeQuery.getSupplierId() != null, PurchaseOrder::getSupplierId, safeQuery.getSupplierId());
+        wrapper.eq(safeQuery.getWarehouseId() != null, PurchaseOrder::getWarehouseId, safeQuery.getWarehouseId());
         wrapper.orderByDesc(PurchaseOrder::getCreateTime);
-        return this.page(new Page<>(pageNo, pageSize), wrapper);
+
+        IPage<PurchaseOrder> page = this.page(new Page<>(pageNo, pageSize), wrapper);
+        List<PurchaseOrder> orders = page.getRecords();
+        if (orders == null || orders.isEmpty()) {
+            Page<PurchaseOrderPageVO> emptyPage = new Page<>(pageNo, pageSize, page.getTotal());
+            emptyPage.setRecords(Collections.emptyList());
+            return emptyPage;
+        }
+
+        Set<Long> supplierIds = orders.stream().map(PurchaseOrder::getSupplierId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> warehouseIds = orders.stream().map(PurchaseOrder::getWarehouseId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> orderIds = orders.stream().map(PurchaseOrder::getId).collect(Collectors.toSet());
+
+        Map<Long, String> supplierNameMap = supplierIds.isEmpty()
+                ? Collections.emptyMap()
+                : supplierMapper.selectBatchIds(supplierIds).stream()
+                .collect(Collectors.toMap(Supplier::getId, Supplier::getSupplierName));
+
+        Map<Long, String> warehouseNameMap = warehouseIds.isEmpty()
+                ? Collections.emptyMap()
+                : warehouseMapper.selectBatchIds(warehouseIds).stream()
+                .collect(Collectors.toMap(Warehouse::getId, Warehouse::getWarehouseName));
+
+        List<PurchaseOrderItem> items = orderIds.isEmpty()
+                ? Collections.emptyList()
+                : itemMapper.selectList(new LambdaQueryWrapper<PurchaseOrderItem>()
+                .in(PurchaseOrderItem::getPurchaseOrderId, orderIds));
+
+        Map<Long, BigDecimal> totalQtyMap = new HashMap<>();
+        Map<Long, BigDecimal> receivedQtyMap = new HashMap<>();
+        for (PurchaseOrderItem item : items) {
+            Long poId = item.getPurchaseOrderId();
+            totalQtyMap.merge(poId, nvl(item.getQuantity()), BigDecimal::add);
+            receivedQtyMap.merge(poId, nvl(item.getReceivedQty()), BigDecimal::add);
+        }
+
+        List<PurchaseOrderPageVO> records = new ArrayList<>(orders.size());
+        for (PurchaseOrder order : orders) {
+            PurchaseOrderPageVO vo = new PurchaseOrderPageVO();
+            vo.setId(order.getId());
+            vo.setPurchaseNo(order.getPurchaseNo());
+            vo.setSupplierId(order.getSupplierId());
+            vo.setSupplierName(supplierNameMap.get(order.getSupplierId()));
+            vo.setWarehouseId(order.getWarehouseId());
+            vo.setWarehouseName(warehouseNameMap.get(order.getWarehouseId()));
+            vo.setOrderStatus(order.getOrderStatus());
+            vo.setOrderDate(order.getOrderDate());
+            vo.setExpectedArrivalDate(order.getExpectedArrivalDate());
+            vo.setTotalAmount(order.getTotalAmount());
+            vo.setCreatedBy(order.getCreatedBy());
+            vo.setReceivedBy(order.getReceivedBy());
+            vo.setRemark(order.getRemark());
+            vo.setCreateTime(order.getCreateTime());
+            vo.setUpdateTime(order.getUpdateTime());
+            BigDecimal totalQty = nvl(totalQtyMap.get(order.getId()));
+            BigDecimal receivedQty = nvl(receivedQtyMap.get(order.getId()));
+            vo.setTotalQty(totalQty);
+            vo.setReceivedQty(receivedQty);
+            vo.setPendingQty(totalQty.subtract(receivedQty).max(BigDecimal.ZERO));
+            records.add(vo);
+        }
+
+        Page<PurchaseOrderPageVO> result = new Page<>(pageNo, pageSize, page.getTotal());
+        result.setRecords(records);
+        return result;
+    }
+
+    @Override
+    public List<PurchaseOrderItemVO> listItems(Long orderId) {
+        requireOrder(orderId);
+        List<PurchaseOrderItem> items = itemMapper.selectList(new LambdaQueryWrapper<PurchaseOrderItem>()
+                .eq(PurchaseOrderItem::getPurchaseOrderId, orderId)
+                .orderByAsc(PurchaseOrderItem::getId));
+        if (items.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Set<Long> fruitIds = items.stream().map(PurchaseOrderItem::getFruitId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> fruitNameMap = fruitIds.isEmpty()
+                ? Collections.emptyMap()
+                : fruitMapper.selectBatchIds(fruitIds).stream().collect(Collectors.toMap(Fruit::getId, Fruit::getFruitName));
+
+        List<PurchaseOrderItemVO> result = new ArrayList<>(items.size());
+        for (PurchaseOrderItem item : items) {
+            PurchaseOrderItemVO vo = new PurchaseOrderItemVO();
+            vo.setId(item.getId());
+            vo.setPurchaseOrderId(item.getPurchaseOrderId());
+            vo.setFruitId(item.getFruitId());
+            vo.setFruitName(fruitNameMap.get(item.getFruitId()));
+            vo.setBatchNo(item.getBatchNo());
+            vo.setProductionDate(item.getProductionDate());
+            vo.setExpirationDate(item.getExpirationDate());
+            vo.setQuantity(item.getQuantity());
+            vo.setReceivedQty(nvl(item.getReceivedQty()));
+            vo.setPendingQty(nvl(item.getQuantity()).subtract(nvl(item.getReceivedQty())).max(BigDecimal.ZERO));
+            vo.setUnitPrice(item.getUnitPrice());
+            vo.setSubtotal(item.getSubtotal());
+            vo.setRemark(item.getRemark());
+            vo.setCreateTime(item.getCreateTime());
+            vo.setUpdateTime(item.getUpdateTime());
+            result.add(vo);
+        }
+        return result;
+    }
+
+    private PurchaseOrder requireOrder(Long orderId) {
+        PurchaseOrder order = this.getById(orderId);
+        if (order == null) {
+            throw new BusinessException("Purchase order not found");
+        }
+        return order;
+    }
+
+    private void validateCreateRequest(PurchaseOrderCreateRequest request) {
+        if (request == null) {
+            throw new BusinessException("Request body cannot be empty");
+        }
+        if (request.getSupplierId() == null) {
+            throw new BusinessException("Supplier is required");
+        }
+        if (request.getWarehouseId() == null) {
+            throw new BusinessException("Warehouse is required");
+        }
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException("At least one purchase item is required");
+        }
+        for (PurchaseOrderCreateRequest.PurchaseItemRequest item : request.getItems()) {
+            if (item.getFruitId() == null) {
+                throw new BusinessException("Fruit is required for each item");
+            }
+            if (!StringUtils.hasText(item.getBatchNo())) {
+                throw new BusinessException("Batch no is required for each item");
+            }
+            if (item.getExpirationDate() == null) {
+                throw new BusinessException("Expiration date is required for each item");
+            }
+            if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("Quantity must be greater than 0");
+            }
+            if (item.getUnitPrice() == null || item.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new BusinessException("Unit price cannot be negative");
+            }
+        }
+    }
+
+    private BigDecimal nvl(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

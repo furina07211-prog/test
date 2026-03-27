@@ -78,6 +78,9 @@ function parseSseEvent(block) {
 export const aiApi = {
   chat: (data) => http.post('/api/ai/chat', data),
   intentQuery: (data) => http.post('/api/ai/intent/query', data),
+  assistantDispatch: (data) => http.post('/api/ai/assistant/dispatch', data),
+  assistantConfirm: (data) => http.post('/api/ai/assistant/confirm', data),
+  assistantHistory: (params) => http.get('/api/ai/assistant/history', { params }),
   async streamChat(payload, { onChunk, onDone, onError, signal } = {}) {
     const token = localStorage.getItem('fruit-token')
     const response = await fetch('/api/ai/chat/stream', {
@@ -92,11 +95,11 @@ export const aiApi = {
 
     if (!response.ok) {
       const text = await response.text()
-      throw new Error(text || `stream request failed: ${response.status}`)
+      throw new Error(text || `流式请求失败：${response.status}`)
     }
 
     if (!response.body) {
-      throw new Error('stream body is empty')
+      throw new Error('流式响应体为空')
     }
 
     const reader = response.body.getReader()
@@ -121,7 +124,7 @@ export const aiApi = {
         }
         if (event === 'error') {
           onError?.(data)
-          throw new Error(data || 'stream error')
+          throw new Error(data || '流式响应异常')
         }
         splitIndex = buffer.indexOf('\n\n')
       }
@@ -132,6 +135,11 @@ export const aiApi = {
 }
 
 export const dashboardApi = {
+  overview: () => http.get('/api/dashboard/overview'),
+  amountTrend: (params) => http.get('/api/dashboard/amount-trend', { params }),
+  categoryRatio: () => http.get('/api/dashboard/inventory/category-ratio'),
+  salesTop: (params) => http.get('/api/dashboard/sales-top', { params }),
+  warnings: (params) => http.get('/api/dashboard/warnings', { params }),
   runForecast: (data) => http.post('/api/dashboard/forecast/run', data),
   forecastTrend: (params) => http.get('/api/dashboard/forecast/trend', { params }),
   runOptimize: (data) => http.post('/api/dashboard/inventory/optimize/run', data),

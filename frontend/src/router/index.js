@@ -1,4 +1,4 @@
-﻿import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 const routes = [
@@ -16,31 +16,31 @@ const routes = [
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/views/dashboard/Home.vue'),
-        meta: { title: 'Dashboard' }
+        meta: { title: '数据看板' }
       },
       {
         path: 'inventory',
         name: 'inventory',
         component: () => import('@/views/inventory/InventoryView.vue'),
-        meta: { title: 'Inventory', roles: ['ADMIN', 'WAREHOUSE'] }
+        meta: { title: '库存管理', roles: ['ADMIN', 'WAREHOUSE'] }
       },
       {
         path: 'purchase',
         name: 'purchase',
         component: () => import('@/views/purchase/PurchaseView.vue'),
-        meta: { title: 'Purchase', roles: ['ADMIN', 'WAREHOUSE'] }
+        meta: { title: '采购管理', roles: ['ADMIN', 'WAREHOUSE'] }
       },
       {
         path: 'sales',
         name: 'sales',
         component: () => import('@/views/sales/SalesView.vue'),
-        meta: { title: 'Sales', roles: ['ADMIN', 'SALES'] }
+        meta: { title: '销售管理', roles: ['ADMIN', 'SALES'] }
       },
       {
         path: 'ai',
         name: 'ai',
         component: () => import('@/views/ai/AiWorkbenchView.vue'),
-        meta: { title: 'AI 助手', roles: ['ADMIN', 'WAREHOUSE', 'SALES'] }
+        meta: { title: '智能助手', roles: ['ADMIN', 'WAREHOUSE', 'SALES'] }
       }
     ]
   }

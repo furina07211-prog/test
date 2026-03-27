@@ -3,11 +3,13 @@ package com.fruit.warehouse.module.purchase.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.fruit.warehouse.common.result.Result;
 import com.fruit.warehouse.module.purchase.dto.PurchaseOrderCreateRequest;
+import com.fruit.warehouse.module.purchase.dto.PurchaseOrderPageQuery;
 import com.fruit.warehouse.module.purchase.dto.PurchaseReceiveRequest;
 import com.fruit.warehouse.module.purchase.entity.PurchaseOrder;
-import com.fruit.warehouse.module.purchase.entity.PurchaseOrderItem;
-import com.fruit.warehouse.module.purchase.mapper.PurchaseOrderItemMapper;
 import com.fruit.warehouse.module.purchase.service.PurchaseService;
+import com.fruit.warehouse.module.purchase.vo.PurchaseOrderItemVO;
+import com.fruit.warehouse.module.purchase.vo.PurchaseOrderPageVO;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,15 +20,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/purchase/orders")
 @RequiredArgsConstructor
 public class PurchaseController {
 
     private final PurchaseService purchaseService;
-    private final PurchaseOrderItemMapper itemMapper;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','WAREHOUSE')")
@@ -35,18 +34,25 @@ public class PurchaseController {
     }
 
     @GetMapping
-    public Result<IPage<PurchaseOrder>> page(@RequestParam(defaultValue = "1") int pageNo,
-                                             @RequestParam(defaultValue = "10") int pageSize,
-                                             @RequestParam(required = false) String status,
-                                             @RequestParam(required = false) Long supplierId) {
-        return Result.success(purchaseService.pageList(pageNo, pageSize, status, supplierId));
+    public Result<IPage<PurchaseOrderPageVO>> page(@RequestParam(defaultValue = "1") Integer pageNo,
+                                                    @RequestParam(defaultValue = "10") Integer pageSize,
+                                                    @RequestParam(required = false) String purchaseNo,
+                                                    @RequestParam(required = false) String status,
+                                                    @RequestParam(required = false) Long supplierId,
+                                                    @RequestParam(required = false) Long warehouseId) {
+        PurchaseOrderPageQuery query = new PurchaseOrderPageQuery();
+        query.setPageNo(pageNo);
+        query.setPageSize(pageSize);
+        query.setPurchaseNo(purchaseNo);
+        query.setStatus(status);
+        query.setSupplierId(supplierId);
+        query.setWarehouseId(warehouseId);
+        return Result.success(purchaseService.pageList(query));
     }
 
     @GetMapping("/{id}/items")
-    public Result<List<PurchaseOrderItem>> items(@PathVariable Long id) {
-        return Result.success(itemMapper.selectList(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PurchaseOrderItem>()
-                        .eq(PurchaseOrderItem::getPurchaseOrderId, id)));
+    public Result<List<PurchaseOrderItemVO>> items(@PathVariable Long id) {
+        return Result.success(purchaseService.listItems(id));
     }
 
     @PostMapping("/{id}/submit")

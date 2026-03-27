@@ -1,23 +1,36 @@
-﻿<template>
+<template>
   <div class="ai-workbench">
     <section class="surface panel">
-      <h2>AI 智能助手</h2>
-      <p>支持自然语言问答，优先走系统内白名单查询，再回退到大模型生成。</p>
+      <h2>智能助手</h2>
+      <p>支持自然语言建单、库存风险查询和销售报表分析，写操作默认二次确认。</p>
+
       <el-alert
         type="info"
         show-icon
         :closable="false"
-        title="示例：帮我查一下苹果的库存；生成昨天的销售报表；给出今天采购建议"
+        title="演示建议：先发起建单指令查看预览，再点击确认创建草稿单。"
       />
+
       <el-divider />
+
       <div class="tips">
-        <div>
-          <h4>能力边界</h4>
-          <p>助手不会直接执行自由 SQL，仅调用受控查询接口，降低误操作风险。</p>
+        <div class="tip-block">
+          <h4>能力范围</h4>
+          <p>1. 生成采购/销售草稿单（需确认）</p>
+          <p>2. 查询库存预警、临期商品、销量排行</p>
+          <p>3. 生成销售报表并给出环比结论</p>
         </div>
-        <div>
-          <h4>响应模式</h4>
-          <p>默认流式输出，网络异常可切换普通模式快速重试。</p>
+        <div class="tip-block">
+          <h4>安全机制</h4>
+          <p>1. 所有写入动作必须手动确认</p>
+          <p>2. 确认动作10分钟失效，防止误触发</p>
+          <p>3. 历史会话支持本地与后端双记录</p>
+        </div>
+        <div class="tip-block">
+          <h4>示例指令</h4>
+          <p>1. 帮我生成一个向华南果业采购100斤苹果的采购单</p>
+          <p>2. 查询当前库存预警和7天内临期商品</p>
+          <p>3. 生成近7天销售报表并给分析结论</p>
         </div>
       </div>
     </section>
@@ -55,12 +68,12 @@ import AiChatPanel from '@/components/AiChatPanel.vue'
   gap: 10px;
 }
 
-.tips h4 {
+.tip-block h4 {
   margin: 0 0 4px;
 }
 
-.tips p {
-  margin: 0;
+.tip-block p {
+  margin: 0 0 4px;
 }
 
 @media (max-width: 1100px) {
@@ -69,3 +82,4 @@ import AiChatPanel from '@/components/AiChatPanel.vue'
   }
 }
 </style>
+

@@ -1,10 +1,22 @@
 ﻿:root {
-  --bg-soft: #f5f6f8;
-  --text-main: #111827;
-  --text-soft: #4b5563;
-  --primary: #5c7cfa;
+  --bg-soft: #f4f6fb;
+  --bg-page: #eef2f9;
   --surface: #ffffff;
-  --border: #e5e7eb;
+  --text-main: #1f2a37;
+  --text-secondary: #5f6b7a;
+  --primary: #2f6df6;
+  --primary-soft: rgba(47, 109, 246, 0.12);
+  --success: #18a058;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --border: #e5eaf3;
+  --border-strong: #d6deeb;
+  --shadow-sm: 0 8px 20px rgba(31, 42, 55, 0.06);
+  --shadow-md: 0 14px 32px rgba(31, 42, 55, 0.1);
+  --sidebar-width: 236px;
+  --sidebar-collapsed-width: 72px;
+  --radius-lg: 14px;
+  --radius-md: 10px;
 }
 
 * {
@@ -13,9 +25,9 @@
 
 body {
   margin: 0;
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
   color: var(--text-main);
-  background: var(--bg-soft);
+  background: var(--bg-page);
 }
 
 a {
@@ -26,55 +38,118 @@ a {
 .surface {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.25);
-}
-
-.layout-shell {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  min-height: 100vh;
-}
-
-.main-area {
-  background: var(--bg-soft);
-  min-height: 100vh;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .page-padding {
   padding: 18px 20px;
 }
 
-.el-menu-item.is-active {
-  background-color: rgba(92, 124, 250, 0.12) !important;
-  color: var(--primary) !important;
-}
-
-header.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 60px;
-  padding: 0 18px;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-}
-
-.topbar .brand {
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--primary);
+.card,
+.list-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .card {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px;
+  padding: 16px;
+}
+
+.page-toolbar {
+  margin-bottom: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.app-table {
+  width: 100%;
+}
+
+.app-table .el-table__row > td {
+  transition: background-color 0.2s ease;
+}
+
+.app-table .el-table__row:hover > td {
+  background: #f7faff !important;
+}
+
+.app-table .warning-row > td {
+  background: #fff7f0 !important;
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.table-actions .el-button {
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.table-actions .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(31, 42, 55, 0.12);
+}
+
+.app-pagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.el-pagination.is-background .el-pager li.is-active {
+  background: var(--primary);
+}
+
+.el-form-item.is-required .el-form-item__label::before {
+  color: var(--danger);
 }
 
 .login-bg {
-  background: radial-gradient(circle at 20% 20%, rgba(92, 124, 250, 0.16), transparent 45%),
-    radial-gradient(circle at 80% 20%, rgba(52, 211, 153, 0.12), transparent 40%),
-    #f8fafc;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eef5ff 0%, #f7fbff 48%, #f0f7f0 100%);
+}
+
+.login-bg::before,
+.login-bg::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.login-bg::before {
+  width: 360px;
+  height: 360px;
+  left: -120px;
+  top: -120px;
+  background: radial-gradient(circle, rgba(47, 109, 246, 0.18) 0%, rgba(47, 109, 246, 0) 70%);
+}
+
+.login-bg::after {
+  width: 420px;
+  height: 420px;
+  right: -130px;
+  bottom: -120px;
+  background: radial-gradient(circle, rgba(24, 160, 88, 0.16) 0%, rgba(24, 160, 88, 0) 72%);
+}
+
+@media (max-width: 1200px) {
+  .page-padding {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-toolbar {
+    gap: 10px;
+  }
 }

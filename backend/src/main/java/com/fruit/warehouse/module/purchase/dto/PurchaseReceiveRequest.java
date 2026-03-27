@@ -12,7 +12,12 @@ public class PurchaseReceiveRequest {
     @Data
     public static class ReceiveItem {
         private Long itemId;
+        private BigDecimal receiveQty;
         private BigDecimal receivedQty;
         private BigDecimal unitCost;
+
+        public BigDecimal resolveReceiveQty() {
+            return receiveQty != null ? receiveQty : receivedQty;
+        }
     }
 }

@@ -18,6 +18,7 @@ public class SalesOrderItem {
     private Long fruitId;
     private Long batchId;
     private BigDecimal quantity;
+    private BigDecimal shippedQty;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
     private String remark;
