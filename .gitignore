@@ -18,6 +18,7 @@ frontend/.vite/
 frontend/.cache/
 ai-algorithm/.venv/
 ai-algorithm/__pycache__/
+ai-algorithm/scripts/__pycache__/
 ai-algorithm/output/
 .venv-ai/
 .wheels/
