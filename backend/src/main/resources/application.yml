@@ -1,0 +1,53 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: fruit-warehouse-backend
+  profiles:
+    active: dev
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+springdoc:
+  swagger-ui:
+    enabled: true
+  api-docs:
+    enabled: true
+
+knife4j:
+  enable: true
+
+fruit:
+  jwt:
+    secret: change-this-jwt-secret-for-fruit-warehouse-2026
+    expire-hours: 12
+  ai:
+    enabled: true
+    provider: openai-compatible
+    base-url: https://api.openai.com
+    api-key: ${FRUIT_AI_API_KEY:}
+    model: gpt-4o-mini
+    timeout-ms: 30000
+    temperature: 0.3
+    max-tokens: 1024
+  algorithm:
+    python-command: ../.venv-ai/Scripts/python.exe
+    script-path: ../ai-algorithm/scripts/predict_cli.py
+    test-data-sql-path: ../sql/test_data.sql
+    timeout-seconds: 120
+    default-safety-days: 3
+    auto-enabled: false
+    auto-cron: 0 30 2 * * ?

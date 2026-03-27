@@ -1,0 +1,10 @@
+package com.fruit.warehouse.module.ai.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+
+@Data
+public class AiIntentQueryRequest {
+    @NotBlank(message = "message cannot be empty")
+    private String message;
+}
